@@ -1,0 +1,40 @@
+{
+  "tools": {
+    "rsync": "/opt/homebrew/bin/rsync",
+    "mongodump": "/opt/homebrew/bin/mongodump"
+  },
+  "excludes": ["._*", ".DS_Store"],
+  "guard": { "replacedPercent": 5, "replacedMinFiles": 20 },
+  "freeSpaceMarginMB": 1024,
+  "volumes": [
+    { "id": "shmedia", "label": "ShMedia", "uuid": "7522B9AB-772B-3266-A946-4BA89FBEF18C" },
+    { "id": "shafferoto", "label": "SHAFFEROTO", "uuid": "A024F39A-2948-361E-9123-37AF9C2BED6B" }
+  ],
+  "apps": [
+    {
+      "id": "tedography",
+      "name": "Tedography",
+      "items": [
+        {
+          "id": "db", "type": "mongo", "label": "Database", "defaultSelected": true,
+          "envFile": "~/src/tedography/apps/api/.env", "envKey": "TEDOGRAPHY_MONGODB_URI",
+          "database": "tedography", "root": "AtlasDBBackups",
+          "destinations": ["shmedia", "shafferoto"], "retention": 10
+        },
+        { "id": "media", "type": "files", "label": "Media", "note": "Originals", "defaultSelected": true, "sourceVolume": "shmedia", "sourcePath": "Tedography/Media", "destVolume": "shafferoto", "destPath": "TedographyBackups/Media", "replacedRoot": "TedographyBackups/_replaced" },
+        { "id": "unrotated", "type": "files", "label": "Unrotated", "note": "Pre-rotation originals", "defaultSelected": true, "sourceVolume": "shmedia", "sourcePath": "Tedography/Unrotated", "destVolume": "shafferoto", "destPath": "TedographyBackups/Unrotated", "replacedRoot": "TedographyBackups/_replaced" },
+        { "id": "edit", "type": "files", "label": "Edit", "defaultSelected": true, "sourceVolume": "shmedia", "sourcePath": "Tedography/Edit", "destVolume": "shafferoto", "destPath": "TedographyBackups/Edit", "replacedRoot": "TedographyBackups/_replaced" },
+        { "id": "scans", "type": "files", "label": "Scans", "defaultSelected": true, "sourceVolume": "shmedia", "sourcePath": "Tedography/Scans", "destVolume": "shafferoto", "destPath": "TedographyBackups/Scans", "replacedRoot": "TedographyBackups/_replaced" },
+        { "id": "printOrders", "type": "files", "label": "printOrders", "defaultSelected": true, "sourceVolume": "shmedia", "sourcePath": "Tedography/printOrders", "destVolume": "shafferoto", "destPath": "TedographyBackups/printOrders", "replacedRoot": "TedographyBackups/_replaced" },
+        { "id": "exports", "type": "files", "label": "Exports", "defaultSelected": true, "sourceVolume": "shmedia", "sourcePath": "Tedography/Exports", "destVolume": "shafferoto", "destPath": "TedographyBackups/Exports", "replacedRoot": "TedographyBackups/_replaced" },
+        { "id": "workspace", "type": "files", "label": "Workspace", "defaultSelected": true, "sourceVolume": "shmedia", "sourcePath": "Tedography/Workspace", "destVolume": "shafferoto", "destPath": "TedographyBackups/Workspace", "replacedRoot": "TedographyBackups/_replaced" },
+        { "id": "editWorkspace", "type": "files", "label": "EditWorkspace", "defaultSelected": true, "sourceVolume": "shmedia", "sourcePath": "Tedography/EditWorkspace", "destVolume": "shafferoto", "destPath": "TedographyBackups/EditWorkspace", "replacedRoot": "TedographyBackups/_replaced" },
+        { "id": "aiQueue", "type": "files", "label": "AI-Queue", "defaultSelected": true, "sourceVolume": "shmedia", "sourcePath": "Tedography/AI-Queue", "destVolume": "shafferoto", "destPath": "TedographyBackups/AI-Queue", "replacedRoot": "TedographyBackups/_replaced" },
+        { "id": "aiTests", "type": "files", "label": "AI-Tests", "defaultSelected": true, "sourceVolume": "shmedia", "sourcePath": "Tedography/AI-Tests", "destVolume": "shafferoto", "destPath": "TedographyBackups/AI-Tests", "replacedRoot": "TedographyBackups/_replaced" },
+        { "id": "chattyGenerated", "type": "files", "label": "ChattyGenerated", "defaultSelected": true, "sourceVolume": "shmedia", "sourcePath": "Tedography/ChattyGenerated", "destVolume": "shafferoto", "destPath": "TedographyBackups/ChattyGenerated", "replacedRoot": "TedographyBackups/_replaced" },
+        { "id": "importStaging", "type": "files", "label": "ImportStaging", "defaultSelected": true, "sourceVolume": "shmedia", "sourcePath": "Tedography/ImportStaging", "destVolume": "shafferoto", "destPath": "TedographyBackups/ImportStaging", "replacedRoot": "TedographyBackups/_replaced" },
+        { "id": "derived", "type": "files", "label": "Derived", "note": "Can be rebuilt by Tedography", "defaultSelected": false, "sourceVolume": "shmedia", "sourcePath": "Tedography/Derived", "destVolume": "shafferoto", "destPath": "TedographyBackups/Derived", "replacedRoot": "TedographyBackups/_replaced" }
+      ]
+    }
+  ]
+}
