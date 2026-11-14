@@ -48,7 +48,7 @@ h2 { font-size: 17px; margin: 0 0 4px; }
 .row:first-of-type { border-top: 0; }
 .row-main { min-width: 0; flex: 1; }
 .check { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-.check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.check input { width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--accent); }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 4px; }
 button { font: inherit; padding: 8px 16px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
@@ -67,3 +67,8 @@ details { margin-top: 4px; font-size: 13px; }
 summary { cursor: pointer; color: var(--muted); }
 pre { overflow-x: auto; max-height: 220px; margin: 6px 0 0; padding: 8px; font-size: 12px; background: var(--bg); border-radius: 6px; }
 .detail { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 4px; }
+.card-head h2 { margin: 0; }
+.select-links { margin-left: auto; display: flex; gap: 14px; }
+button.link { padding: 0; border: 0; background: none; color: var(--accent); font-size: 13px; }
+button.link:disabled { color: var(--muted); opacity: .6; }

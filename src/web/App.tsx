@@ -150,25 +150,48 @@ function SelectStage(props: {
     if (!next.delete(key)) next.add(key);
     onChange(next);
   };
+  const setAll = (keys: string[], on: boolean) => {
+    const next = new Set(selected);
+    for (const key of keys) {
+      if (on) next.add(key);
+      else next.delete(key);
+    }
+    onChange(next);
+  };
   return (
     <>
-      {state.apps.map((app) => (
-        <section className="card" key={app.id}>
-          <h2>{app.name}</h2>
-          {app.items.map((item) => (
-            <div className="row" key={item.key}>
-              <label className="check row-main">
-                <input type="checkbox" checked={selected.has(item.key)} onChange={() => toggle(item.key)} />
-                <span>
-                  {item.label}
-                  {item.note && <span className="muted"> · {item.note}</span>}
-                </span>
-              </label>
-              <span className="muted">{formatAge(item.lastBackupAt)}</span>
+      {state.apps.map((app) => {
+        const keys = app.items.map((item) => item.key);
+        const chosen = keys.filter((key) => selected.has(key)).length;
+        return (
+          <section className="card" key={app.id}>
+            <div className="card-head">
+              <h2>{app.name}</h2>
+              <span className="muted">{chosen} of {keys.length}</span>
+              <span className="select-links">
+                <button className="link" disabled={chosen === keys.length} onClick={() => setAll(keys, true)}>
+                  Select all
+                </button>
+                <button className="link" disabled={chosen === 0} onClick={() => setAll(keys, false)}>
+                  Select none
+                </button>
+              </span>
             </div>
-          ))}
-        </section>
-      ))}
+            {app.items.map((item) => (
+              <div className="row" key={item.key}>
+                <label className="check row-main">
+                  <input type="checkbox" checked={selected.has(item.key)} onChange={() => toggle(item.key)} />
+                  <span>
+                    {item.label}
+                    {item.note && <span className="muted"> · {item.note}</span>}
+                  </span>
+                </label>
+                <span className="muted">{formatAge(item.lastBackupAt)}</span>
+              </div>
+            ))}
+          </section>
+        );
+      })}
       <div className="actions">
         <button className="primary" disabled={selected.size === 0} onClick={onNext}>
           Continue
