@@ -120,7 +120,7 @@ test('config refuses a backup onto its own source drive', () => {
   const config = baseConfig();
   config.apps = [{
     id: 'x', name: 'X',
-    items: [{ id: 'f', type: 'files', label: 'F', defaultSelected: true, sourceVolume: 'a', sourcePath: 'p', destVolume: 'a', destPath: 'q', replacedRoot: 'r' }],
+    items: [{ id: 'f', type: 'files', label: 'F', defaultSelected: true, sourceVolume: 'a', sourcePath: 'p', destVolumes: ['a'], destPath: 'q', replacedRoot: 'r' }],
   }];
   assert.throws(() => validateConfig(config), /same drive/);
 });
@@ -130,7 +130,26 @@ test('config refuses paths that escape a volume', () => {
   config.volumes.push({ id: 'b', label: 'B', uuid: '2' });
   config.apps = [{
     id: 'x', name: 'X',
-    items: [{ id: 'f', type: 'files', label: 'F', defaultSelected: true, sourceVolume: 'a', sourcePath: 'p', destVolume: 'b', destPath: '../q', replacedRoot: 'r' }],
+    items: [{ id: 'f', type: 'files', label: 'F', defaultSelected: true, sourceVolume: 'a', sourcePath: 'p', destVolumes: ['b'], destPath: '../q', replacedRoot: 'r' }],
   }];
   assert.throws(() => validateConfig(config), /relative path/);
+});
+
+test('config accepts a Mac source and refuses a relative one', () => {
+  const item = { id: 'f', type: 'files' as const, label: 'F', defaultSelected: true, sourcePath: '~/Documents/x', destVolumes: ['a'], destPath: 'q', replacedRoot: 'r' };
+  const config = baseConfig();
+  config.apps = [{ id: 'x', name: 'X', items: [item] }];
+  assert.doesNotThrow(() => validateConfig(config));
+  config.apps = [{ id: 'x', name: 'X', items: [{ ...item, sourcePath: 'Documents/x' }] }];
+  assert.throws(() => validateConfig(config), /absolute path/);
+});
+
+test('config refuses a source drive among several destinations', () => {
+  const config = baseConfig();
+  config.volumes.push({ id: 'b', label: 'B', uuid: '2' });
+  config.apps = [{
+    id: 'x', name: 'X',
+    items: [{ id: 'f', type: 'files', label: 'F', defaultSelected: true, sourceVolume: 'a', sourcePath: 'p', destVolumes: ['b', 'a'], destPath: 'q', replacedRoot: 'r' }],
+  }];
+  assert.throws(() => validateConfig(config), /same drive/);
 });

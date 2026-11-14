@@ -35,12 +35,17 @@ export function validateConfig(config: Config): void {
           throw new Error(`${context}: retention must be at least 1`);
         }
       } else {
-        requireVolume(item.sourceVolume, context);
-        requireVolume(item.destVolume, context);
-        if (item.sourceVolume === item.destVolume) {
-          throw new Error(`${context}: a backup must not live on the same drive as its source`);
+        if (item.destVolumes.length === 0) throw new Error(`${context}: no destinations`);
+        item.destVolumes.forEach((id) => requireVolume(id, context));
+        if (item.sourceVolume) {
+          requireVolume(item.sourceVolume, context);
+          requireRelative(item.sourcePath, context);
+          if (item.destVolumes.includes(item.sourceVolume)) {
+            throw new Error(`${context}: a backup must not live on the same drive as its source`);
+          }
+        } else if (!isAbsolute(expandHome(item.sourcePath))) {
+          throw new Error(`${context}: a source on this Mac needs an absolute path`);
         }
-        requireRelative(item.sourcePath, context);
         requireRelative(item.destPath, context);
         requireRelative(item.replacedRoot, context);
       }
@@ -65,6 +70,12 @@ export function allItems(config: Config): { key: string; appName: string; item: 
   );
 }
 
+/** The drives written to, which excludes a source drive. */
+export function destinationVolumes(item: ItemConfig): string[] {
+  return item.type === 'mongo' ? item.destinations : item.destVolumes;
+}
+
 export function itemVolumes(item: ItemConfig): string[] {
-  return item.type === 'mongo' ? item.destinations : [item.sourceVolume, item.destVolume];
+  if (item.type === 'mongo') return item.destinations;
+  return item.sourceVolume ? [item.sourceVolume, ...item.destVolumes] : item.destVolumes;
 }

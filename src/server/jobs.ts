@@ -13,7 +13,7 @@ import type {
   PlanItem,
   RunItemRecord,
 } from '../shared/types.js';
-import { allItems, itemVolumes } from './config.js';
+import { allItems, destinationVolumes, expandHome, itemVolumes } from './config.js';
 import { exec, redact } from './exec.js';
 import { saveRun } from './history.js';
 import {
@@ -115,6 +115,29 @@ export function guardTriggered(
   return (replaced / Math.max(destFiles, 1)) * 100 >= guard.replacedPercent;
 }
 
+function sourcePathOf(item: FilesItemConfig, mounts: Map<string, string>): string | null {
+  if (!item.sourceVolume) return expandHome(item.sourcePath);
+  const mount = mounts.get(item.sourceVolume);
+  return mount ? join(mount, item.sourcePath) : null;
+}
+
+function rsyncJobFor(
+  config: Config,
+  item: FilesItemConfig,
+  source: string,
+  dest: string,
+  replacedDir: string,
+): RsyncJob {
+  return {
+    rsync: config.tools.rsync,
+    source,
+    dest,
+    replacedDir,
+    excludes: config.excludes,
+    convertNames: !item.sourceVolume,
+  };
+}
+
 async function isEmptyDir(path: string): Promise<boolean> {
   const names = await readdir(path);
   return names.filter((name) => !name.startsWith('.')).length === 0;
@@ -123,58 +146,60 @@ async function isEmptyDir(path: string): Promise<boolean> {
 async function planFiles(
   config: Config,
   key: string,
+  label: string,
   item: FilesItemConfig,
   mounts: Map<string, string>,
   signal: AbortSignal,
 ): Promise<PlanItem> {
   const result: PlanItem = {
     key,
-    label: item.label,
+    label,
     type: 'files',
     blockers: [],
     warnings: [],
     guardTriggered: false,
   };
-  const sourceMount = mounts.get(item.sourceVolume);
-  const destMount = mounts.get(item.destVolume);
-  if (!sourceMount || !destMount) {
+  const source = sourcePathOf(item, mounts);
+  if (!source || item.destVolumes.some((id) => !mounts.has(id))) {
     result.blockers.push('A required drive is not mounted.');
     return result;
   }
-  const source = join(sourceMount, item.sourcePath);
-  const dest = join(destMount, item.destPath);
   const sourceEmpty = await isEmptyDir(source).catch(() => null);
   if (sourceEmpty === null) {
     result.blockers.push(`Source folder not found: ${source}`);
     return result;
   }
-  const destinationExists = await stat(dest).then(
-    () => true,
-    () => false,
-  );
-  if (sourceEmpty && destinationExists && !(await isEmptyDir(dest))) {
-    result.blockers.push('The source is empty but its backup is not. Refusing to mirror an empty folder.');
-    return result;
+  result.files = [];
+  for (const id of item.destVolumes) {
+    const destMount = mounts.get(id)!;
+    const dest = join(destMount, item.destPath);
+    const destinationExists = await stat(dest).then(
+      () => true,
+      () => false,
+    );
+    if (sourceEmpty && destinationExists && !(await isEmptyDir(dest))) {
+      result.blockers.push('The source is empty but its backup is not. Refusing to mirror an empty folder.');
+      return result;
+    }
+    const replacedDir = await replacedDirFor(destMount, item, localDate());
+    const dry = await dryRun(rsyncJobFor(config, item, source, dest, replacedDir), signal);
+    const destinationLabel = config.volumes.find((volume) => volume.id === id)?.label ?? id;
+    result.files.push({ ...dry, destinationLabel, destinationExists, replacedDir });
+    if (guardTriggered(config.guard, dry)) result.guardTriggered = true;
   }
-  const replacedDir = await replacedDirFor(destMount, item, localDate());
-  const dry = await dryRun(
-    { rsync: config.tools.rsync, source, dest, replacedDir, excludes: config.excludes },
-    signal,
-  );
-  result.files = { ...dry, destinationExists, replacedDir };
-  result.guardTriggered = guardTriggered(config.guard, dry);
   return result;
 }
 
 async function planMongo(
   key: string,
+  label: string,
   item: MongoItemConfig,
   mounts: Map<string, string>,
   signal: AbortSignal,
 ): Promise<PlanItem> {
   const result: PlanItem = {
     key,
-    label: item.label,
+    label,
     type: 'mongo',
     blockers: [],
     warnings: [],
@@ -223,9 +248,7 @@ async function checkDrives(
 ): Promise<string[]> {
   const blockers: string[] = [];
   const labelOf = (id: string) => config.volumes.find((v) => v.id === id)?.label ?? id;
-  const destinationsOf = (item: ItemConfig) =>
-    item.type === 'mongo' ? item.destinations : [item.destVolume];
-  const destinations = new Set(selected.flatMap(({ item }) => destinationsOf(item)));
+  const destinations = new Set(selected.flatMap(({ item }) => destinationVolumes(item)));
   for (const id of destinations) {
     const mount = mounts.get(id);
     if (mount && !(await canWrite(mount))) {
@@ -238,8 +261,10 @@ async function checkDrives(
   for (const plan of plans) {
     const item = selected.find((entry) => entry.key === plan.key)?.item;
     if (!item) continue;
-    const bytes = plan.files ? plan.files.bytesToCopy : plan.mongo ? DUMP_ESTIMATE : 0;
-    for (const id of destinationsOf(item)) needed.set(id, (needed.get(id) ?? 0) + bytes);
+    for (const [index, id] of destinationVolumes(item).entries()) {
+      const bytes = plan.files?.[index]?.bytesToCopy ?? (plan.mongo ? DUMP_ESTIMATE : 0);
+      needed.set(id, (needed.get(id) ?? 0) + bytes);
+    }
   }
   for (const [id, bytes] of needed) {
     const mount = mounts.get(id);
@@ -255,7 +280,7 @@ export function startPlan(config: Config, keys: string[]): Job {
   if (selected.length === 0) throw new Error('Nothing selected.');
   const current = startJob(
     'plan',
-    selected.map(({ key, item }) => ({ key, label: item.label, state: 'pending' })),
+    selected.map(({ key, appName, item }) => ({ key, label: `${appName}: ${item.label}`, state: 'pending' })),
   );
   const { signal } = controller!;
   void (async () => {
@@ -277,15 +302,15 @@ export function startPlan(config: Config, keys: string[]): Job {
         try {
           const plan =
             item.type === 'mongo'
-              ? await planMongo(key, item, mounts, signal)
-              : await planFiles(config, key, item, mounts, signal);
+              ? await planMongo(key, progress.label, item, mounts, signal)
+              : await planFiles(config, key, progress.label, item, mounts, signal);
           plans.push(plan);
           progress.state = plan.blockers.length ? 'failed' : 'ok';
         } catch (error) {
           signal.throwIfAborted();
           plans.push({
             key,
-            label: item.label,
+            label: progress.label,
             type: item.type,
             blockers: [errorText(error)],
             warnings: [],
@@ -383,26 +408,34 @@ async function runMongoItem(
   }
 }
 
-async function runFilesItem(
+const plural = (n: number, noun: string) => `${n.toLocaleString()} ${noun}${n === 1 ? '' : 's'}`;
+
+interface DestinationResult {
+  label: string;
+  summary: string;
+  remaining: number;
+  sourceChanged: boolean;
+}
+
+async function copyToDestination(
   config: Config,
   item: FilesItemConfig,
+  source: string,
+  destMount: string,
+  label: string,
   progress: JobItem,
-  mounts: Map<string, string>,
   signal: AbortSignal,
-): Promise<void> {
-  const source = join(mounts.get(item.sourceVolume)!, item.sourcePath);
-  const dest = join(mounts.get(item.destVolume)!, item.destPath);
-  if (await isEmptyDir(source)) {
-    if (!(await isEmptyDir(dest).catch(() => true))) {
-      throw new Error('The source is empty but its backup is not. Refusing to mirror it.');
-    }
+): Promise<DestinationResult> {
+  const dest = join(destMount, item.destPath);
+  if ((await isEmptyDir(source)) && !(await isEmptyDir(dest).catch(() => true))) {
+    throw new Error('The source is empty but its backup is not. Refusing to mirror it.');
   }
   await mkdir(dirname(dest), { recursive: true });
   // rsync only creates this folder if it actually has something to move into it.
-  const replacedDir = await replacedDirFor(mounts.get(item.destVolume)!, item, localDate());
-  const rsyncJob: RsyncJob = { rsync: config.tools.rsync, source, dest, replacedDir, excludes: config.excludes };
+  const replacedDir = await replacedDirFor(destMount, item, localDate());
+  const rsyncJob = rsyncJobFor(config, item, source, dest, replacedDir);
 
-  setItem(progress, { detail: 'Copying', percent: 0 });
+  setItem(progress, { detail: `Copying to ${label}`, percent: 0 });
   const outcome = await copy(
     rsyncJob,
     ({ percent, rate, eta }) => setItem(progress, { percent, rate, eta }),
@@ -414,19 +447,46 @@ async function runFilesItem(
     throw new Error(`rsync failed with exit code ${outcome.code}: ${outcome.stderr.slice(-400)}`);
   }
 
-  setItem(progress, { detail: 'Verifying' });
+  setItem(progress, { detail: `Verifying ${label}` });
   const verify = await dryRun(rsyncJob, signal);
-  const remaining = verify.newFiles + verify.changedFiles + verify.deletedFiles;
-  const plural = (n: number, noun: string) => `${n.toLocaleString()} ${noun}${n === 1 ? '' : 's'}`;
-  const summary = `${plural(outcome.filesCopied, 'file')} copied (${formatBytes(outcome.bytesCopied)}), ${plural(outcome.filesDeleted, 'file')} moved out of the mirror`;
-  if (remaining > 0 || outcome.code === 24) {
-    setItem(progress, {
-      state: 'warning',
-      detail: `${summary}. ${plural(remaining, 'file')} still differ, probably changed during the run. Run it again to catch up.`,
-    });
-  } else {
-    setItem(progress, { state: 'ok', detail: `${summary}. Verified.` });
+  return {
+    label,
+    summary: `${plural(outcome.filesCopied, 'file')} copied (${formatBytes(outcome.bytesCopied)}), ${plural(outcome.filesDeleted, 'file')} moved out of the mirror`,
+    remaining: verify.newFiles + verify.changedFiles + verify.deletedFiles,
+    sourceChanged: outcome.code === 24,
+  };
+}
+
+async function runFilesItem(
+  config: Config,
+  item: FilesItemConfig,
+  progress: JobItem,
+  mounts: Map<string, string>,
+  signal: AbortSignal,
+): Promise<void> {
+  const source = sourcePathOf(item, mounts);
+  if (!source) throw new Error('The source drive is no longer mounted.');
+  const results: DestinationResult[] = [];
+  const failures: string[] = [];
+  // One drive failing shouldn't stop the other from getting its copy.
+  for (const id of item.destVolumes) {
+    const label = config.volumes.find((volume) => volume.id === id)?.label ?? id;
+    try {
+      results.push(await copyToDestination(config, item, source, mounts.get(id)!, label, progress, signal));
+    } catch (error) {
+      if (signal.aborted) throw error;
+      failures.push(`${label}: ${errorText(error)}`);
+    }
   }
+  const lines = results.map(({ label, summary, remaining }) =>
+    `${label}: ${summary}${remaining ? `, ${plural(remaining, 'file')} still differ` : ', verified'}`,
+  );
+  const unsettled = results.some((result) => result.remaining > 0 || result.sourceChanged);
+  if (unsettled) lines.push('Some files changed during the run. Run it again to catch up.');
+  setItem(progress, {
+    state: failures.length ? 'failed' : unsettled ? 'warning' : 'ok',
+    detail: [...failures, ...lines].join('. '),
+  });
 }
 
 function keepAwake(): () => void {
@@ -454,7 +514,7 @@ export function startRun(config: Config, planId: string, acknowledgeGuard: boole
   );
   const current = startJob(
     'run',
-    selected.map(({ key, item }) => ({ key, label: item.label, state: 'pending' })),
+    selected.map(({ key, appName, item }) => ({ key, label: `${appName}: ${item.label}`, state: 'pending' })),
   );
   current.plan = plan;
   const { signal } = controller!;

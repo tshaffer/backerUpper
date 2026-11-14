@@ -26,9 +26,10 @@ export interface FilesItemConfig {
   label: string;
   note?: string;
   defaultSelected: boolean;
-  sourceVolume: string;
+  /** Omit for a folder on this Mac, in which case sourcePath is absolute or starts with ~/. */
+  sourceVolume?: string;
   sourcePath: string;
-  destVolume: string;
+  destVolumes: string[];
   destPath: string;
   replacedRoot: string;
 }
@@ -80,6 +81,7 @@ export interface AppView {
 }
 
 export interface FilesPlan {
+  destinationLabel: string;
   newFiles: number;
   changedFiles: number;
   deletedFiles: number;
@@ -105,7 +107,7 @@ export interface PlanItem {
   blockers: string[];
   warnings: string[];
   guardTriggered: boolean;
-  files?: FilesPlan;
+  files?: FilesPlan[];
   mongo?: MongoPlan;
 }
 

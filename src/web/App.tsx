@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AppState, Job, Plan, PlanItem, VolumeStatus } from '../shared/types';
+import type { AppState, FilesPlan, Job, Plan, PlanItem, VolumeStatus } from '../shared/types';
 import { count, formatAge, formatBytes } from './format';
 
 type Stage = 'select' | 'drives' | 'plan' | 'run';
@@ -217,36 +217,50 @@ function DrivesStage({ volumes, onBack }: { volumes: VolumeStatus[]; onBack: () 
   );
 }
 
+function FilesPlanDetail({ plan, showDrive }: { plan: FilesPlan; showDrive: boolean }) {
+  return (
+    <>
+      <div className="detail">
+        {showDrive && `${plan.destinationLabel}: `}
+        {count(plan.newFiles, 'new file')}, {count(plan.changedFiles, 'changed file')},{' '}
+        {count(plan.deletedFiles, 'deleted file')}, {formatBytes(plan.bytesToCopy)} to copy
+      </div>
+      {!plan.destinationExists && <div className="detail">First backup of this folder</div>}
+      {plan.replacedSamples.length > 0 && (
+        <details>
+          <summary>Examples moved to {plan.replacedDir}</summary>
+          <pre>{plan.replacedSamples.join('\n')}</pre>
+        </details>
+      )}
+      {plan.newSamples.length > 0 && (
+        <details>
+          <summary>Examples of new files</summary>
+          <pre>{plan.newSamples.join('\n')}</pre>
+        </details>
+      )}
+    </>
+  );
+}
+
 function PlanRow({ item }: { item: PlanItem }) {
-  const summary = item.mongo
-    ? `Full dump: ${count(item.mongo.collections, 'collection')}, ${count(item.mongo.documents, 'document')}, to ${count(item.mongo.destinations.length, 'drive')}`
-    : item.files
-      ? `${count(item.files.newFiles, 'new file')}, ${count(item.files.changedFiles, 'changed file')}, ${count(item.files.deletedFiles, 'deleted file')}, ${formatBytes(item.files.bytesToCopy)} to copy`
-      : '';
-  const replaced = item.files?.replacedSamples ?? [];
-  const fresh = item.files?.newSamples ?? [];
+  const destinations = item.files ?? [];
   return (
     <div className="row">
       <div className="row-main">
         {item.label}
-        <div className="detail">{summary}</div>
-        {item.files && !item.files.destinationExists && <div className="detail">First backup of this folder</div>}
+        {item.mongo && (
+          <div className="detail">
+            Full dump: {count(item.mongo.collections, 'collection')}, {count(item.mongo.documents, 'document')}, to{' '}
+            {count(item.mongo.destinations.length, 'drive')}
+          </div>
+        )}
+        {destinations.map((plan) => (
+          <FilesPlanDetail plan={plan} showDrive={destinations.length > 1} key={plan.destinationLabel} />
+        ))}
         {item.blockers.map((text) => (
           <div className="state failed" key={text} style={{ whiteSpace: 'normal' }}>{text}</div>
         ))}
         {item.guardTriggered && <div className="state warning">Unusually large share of files replaced</div>}
-        {replaced.length > 0 && (
-          <details>
-            <summary>Examples moved to {item.files?.replacedDir}</summary>
-            <pre>{replaced.join('\n')}</pre>
-          </details>
-        )}
-        {fresh.length > 0 && (
-          <details>
-            <summary>Examples of new files</summary>
-            <pre>{fresh.join('\n')}</pre>
-          </details>
-        )}
       </div>
     </div>
   );
@@ -369,7 +383,7 @@ function RunStage(props: {
       {!running && (
         <section className="card">
           <h2>Eject drives</h2>
-          <p className="muted">Stop Tedography first if it is using a drive.</p>
+          <p className="muted">Stop any app that's using a drive first.</p>
           {volumes.map((volume) => (
             <div className="row" key={volume.id}>
               <span className="row-main">{volume.label}</span>

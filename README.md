@@ -2,7 +2,7 @@
 
 A local app for backing up data from your apps to external drives. You choose what to back up, it tells you which drives to mount, shows a dry-run plan, then runs the backup and verifies it.
 
-The first version covers Tedography only. Apps are defined in `config/backerupper.config.json`, so adding one is mostly a config change.
+It currently covers Tedography and Chatorama. Apps are defined in `config/backerupper.config.json`, so adding one is mostly a config change.
 
 ## Running it
 
@@ -17,6 +17,24 @@ pnpm start
 ```
 
 Then open <http://127.0.0.1:4199>. The server only listens on this Mac.
+
+### Opening it from Spotlight
+
+```bash
+./scripts/install-app.sh
+```
+
+This puts `backerUpper.app` in `/Applications`. Opening it starts the server in the background if it isn't running, then opens the page in your browser. Opening it again while it's running just opens the page. The server keeps running after you close the page, so a backup carries on, and its log is `~/Library/Logs/backerUpper.log`.
+
+The first time, macOS asks whether backerUpper can access removable volumes and your Documents folder. Allow both. If you missed a prompt, turn backerUpper on in System Settings > Privacy & Security > Files & Folders.
+
+After changing backerUpper's code, stop the server so the next launch picks up the change:
+
+```bash
+pkill -f 'backerUpper/node_modules/.*tsx.*src/server/index.ts'
+```
+
+Rerun the install script if Node or this folder moves.
 
 ## What a run does
 
@@ -33,7 +51,7 @@ You can close the page while it runs, because the server does the work, and reop
 
 The connection string is read from the app's `.env` at run time, passed to `mongodump` through a temporary private file, and never stored.
 
-**Files** use incremental rsync, and the backup mirrors the source exactly. Anything that would be overwritten or deleted is moved to `TedographyBackups/_replaced/<date>/<folder>`, where it stays until you delete it yourself. After copying, a second dry run confirms nothing still differs.
+**Files** use incremental rsync, and the backup mirrors the source exactly. Anything that would be overwritten or deleted is moved to a dated folder such as `TedographyBackups/_replaced/<date>/<folder>`, where it stays until you delete it yourself. After copying, a second dry run confirms nothing still differs. A folder on the Mac is copied to every drive listed for it, and if one drive fails, the others still get their copy.
 
 ## Safety checks
 
@@ -66,7 +84,7 @@ Files are plain copies, so you can browse them in Finder and copy them back. Ear
 
 ## Adding an app
 
-Add an entry to `apps` in the config, and any new drives to `volumes`. `type: "mongo"` items need the `.env` path, variable name and database. `type: "files"` items need a source and destination. Get a drive's UUID with `diskutil info /Volumes/<name>`.
+Add an entry to `apps` in the config, and any new drives to `volumes`. `type: "mongo"` items need the `.env` path, variable name and database. `type: "files"` items need a source and `destVolumes`. Set `sourceVolume` for a folder on a drive, or leave it out and give a full or `~/` path for a folder on the Mac. Get a drive's UUID with `diskutil info /Volumes/<name>`.
 
 ## Development
 

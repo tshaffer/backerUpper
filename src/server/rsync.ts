@@ -7,6 +7,8 @@ export interface RsyncJob {
   dest: string;
   replacedDir: string;
   excludes: string[];
+  /** Set for sources on the Mac's internal disk. See baseArgs. */
+  convertNames?: boolean;
 }
 
 const SAMPLE_LIMIT = 20;
@@ -22,6 +24,9 @@ function baseArgs(job: RsyncJob): string[] {
     '--backup',
     `--backup-dir=${job.replacedDir}`,
     '--stats',
+    // APFS keeps accented names as written, but exFAT and HFS+ list them decomposed. Without
+    // this, rsync sees such a name as deleted on every run and churns it through _replaced.
+    ...(job.convertNames ? ['--iconv=UTF-8,UTF-8-MAC'] : []),
     ...job.excludes.map((pattern) => `--exclude=${pattern}`),
     // The trailing slashes mean "contents of", so paths never nest one level deeper.
     `${job.source.replace(/\/$/, '')}/`,
@@ -40,7 +45,7 @@ export function parseRegularFileCount(output: string): number {
   return regular?.[1] ? Number(regular[1].replaceAll(',', '')) : 0;
 }
 
-export function parseDryRun(output: string): Omit<FilesPlan, 'destinationExists' | 'replacedDir'> {
+export function parseDryRun(output: string): Omit<FilesPlan, 'destinationLabel' | 'destinationExists' | 'replacedDir'> {
   const plan = {
     newFiles: 0,
     changedFiles: 0,
