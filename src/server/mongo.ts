@@ -128,6 +128,23 @@ export function compareCounts(
   return { failures, warnings };
 }
 
+/**
+ * Drops the database name from a connection string, because mongodump refuses a URI that
+ * names a different database from --db (Tedmarks' URI names tedography but its data is in
+ * tedmarks). For a plain mongodb:// URI that name is also the default auth database, so it
+ * is kept as authSource. mongodb+srv:// hosts such as Atlas set authSource themselves.
+ */
+export function withoutDatabase(uri: string): string {
+  const match = /^(mongodb(?:\+srv)?:\/\/[^/?]*)(?:\/([^?]*))?(?:\?(.*))?$/.exec(uri);
+  if (!match) return uri;
+  const [, base, path, query] = match;
+  const params = query ? query.split('&') : [];
+  if (path && !uri.startsWith('mongodb+srv:') && !params.some((p) => p.startsWith('authSource='))) {
+    params.push(`authSource=${path}`);
+  }
+  return `${base}/${params.length ? `?${params.join('&')}` : ''}`;
+}
+
 export async function runMongodump(
   mongodump: string,
   uri: string,
@@ -140,7 +157,7 @@ export async function runMongodump(
   const configDir = await mkdtemp(join(tmpdir(), 'backerupper-'));
   const configPath = join(configDir, 'mongodump.yaml');
   try {
-    await writeFile(configPath, `uri: ${JSON.stringify(uri)}\n`, { mode: 0o600 });
+    await writeFile(configPath, `uri: ${JSON.stringify(withoutDatabase(uri))}\n`, { mode: 0o600 });
     const args = ['--config', configPath, '--db', database, '--gzip', '--out', outDir];
     const result = await exec(mongodump, args, {
       signal,

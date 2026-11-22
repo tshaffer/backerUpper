@@ -8,7 +8,7 @@ import type { Config } from '../shared/types.js';
 import { validateConfig } from './config.js';
 import { redact } from './exec.js';
 import { guardTriggered } from './jobs.js';
-import { compareCounts, countBsonGz, MANIFEST_NAME, pruneDumps } from './mongo.js';
+import { compareCounts, countBsonGz, MANIFEST_NAME, pruneDumps, withoutDatabase } from './mongo.js';
 import { parseDryRun, parseProgress } from './rsync.js';
 
 const temp = await mkdtemp(join(tmpdir(), 'backerupper-test-'));
@@ -152,4 +152,13 @@ test('config refuses a source drive among several destinations', () => {
     items: [{ id: 'f', type: 'files', label: 'F', sourceVolume: 'a', sourcePath: 'p', destVolumes: ['b', 'a'], destPath: 'q', replacedRoot: 'r' }],
   }];
   assert.throws(() => validateConfig(config), /same drive/);
+});
+
+test('withoutDatabase drops the database name but keeps options and auth', () => {
+  assert.equal(withoutDatabase('mongodb+srv://u:p@h.example.net/tedography?retryWrites=true'), 'mongodb+srv://u:p@h.example.net/?retryWrites=true');
+  assert.equal(withoutDatabase('mongodb+srv://u:p@h.example.net/tedography'), 'mongodb+srv://u:p@h.example.net/');
+  assert.equal(withoutDatabase('mongodb+srv://u:p@h.example.net/'), 'mongodb+srv://u:p@h.example.net/');
+  assert.equal(withoutDatabase('mongodb://u:p@h1,h2:27017/app?replicaSet=rs'), 'mongodb://u:p@h1,h2:27017/?replicaSet=rs&authSource=app');
+  assert.equal(withoutDatabase('mongodb://u:p@h/app?authSource=admin'), 'mongodb://u:p@h/?authSource=admin');
+  assert.equal(withoutDatabase('mongodb://localhost:27017'), 'mongodb://localhost:27017/');
 });

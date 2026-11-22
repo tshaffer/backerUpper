@@ -2,7 +2,7 @@
 
 A local app for backing up data from your apps to external drives. You choose what to back up, it tells you which drives to mount, shows a dry-run plan, then runs the backup and verifies it.
 
-It currently covers Tedography and Chatorama. Apps are defined in `config/backerupper.config.json`, so adding one is mostly a config change.
+It currently covers Tedography, Chatorama and Tedmarks. Apps are defined in `config/backerupper.config.json`, so adding one is mostly a config change.
 
 ## Running it
 

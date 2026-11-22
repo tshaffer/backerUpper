@@ -52,6 +52,18 @@
         { "id": "inbox", "type": "files", "label": "Import inbox", "sourcePath": "~/Documents/chatalogInbox", "destVolumes": ["shmedia", "shafferoto"], "destPath": "ChatoramaBackups/chatalogInbox", "replacedRoot": "ChatoramaBackups/_replaced" },
         { "id": "scripts", "type": "files", "label": "Scripts", "sourcePath": "~/Documents/chatalogScripts", "destVolumes": ["shmedia", "shafferoto"], "destPath": "ChatoramaBackups/chatalogScripts", "replacedRoot": "ChatoramaBackups/_replaced" }
       ]
+    },
+    {
+      "id": "tedmarks",
+      "name": "Tedmarks",
+      "items": [
+        {
+          "id": "db", "type": "mongo", "label": "Database", "note": "Places, visits and ratings",
+          "envFile": "~/src/tedmarks/api/.env", "envKey": "MONGODB_URI",
+          "database": "tedmarks", "root": "AtlasDBBackups",
+          "destinations": ["shmedia", "shafferoto"], "retention": 10
+        }
+      ]
     }
   ]
 }
