@@ -62,6 +62,8 @@ export interface VolumeStatus {
   freeBytes?: number;
   /** False when macOS refuses to list the drive (usually a privacy permission). */
   readable?: boolean;
+  /** Why the drive couldn't be listed, such as EPERM (privacy permission) or EACCES (file permissions). */
+  readError?: string;
 }
 
 export interface ItemView {

@@ -203,7 +203,9 @@ function SelectStage(props: {
 
 function driveState(volume: VolumeStatus): { text: string; className: string } {
   if (!volume.mounted) return { text: 'Not mounted', className: 'pending' };
-  if (!volume.readable) return { text: 'Access blocked', className: 'failed' };
+  if (!volume.readable) {
+    return { text: `Access blocked${volume.readError ? ` (${volume.readError})` : ''}`, className: 'failed' };
+  }
   return { text: 'Ready', className: 'ok' };
 }
 

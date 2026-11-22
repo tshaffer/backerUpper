@@ -60,24 +60,27 @@ export async function volumeStatuses(configured: VolumeConfig[]): Promise<Volume
       const match = mounted.find((v) => v.uuid === volume.uuid.toUpperCase());
       const base = { id: volume.id, label: volume.label, uuid: volume.uuid };
       if (!match) return { ...base, mounted: false };
+      const readError = await readErrorOf(match.mountPath);
       return {
         ...base,
         mounted: true,
         mountPath: match.mountPath,
         filesystem: match.filesystem,
-        readable: await isReadable(match.mountPath),
+        readable: !readError,
+        ...(readError ? { readError } : {}),
         freeBytes: await freeBytes(match.mountPath).catch(() => undefined),
       };
     }),
   );
 }
 
-async function isReadable(path: string): Promise<boolean> {
+/** Returns undefined when the drive can be listed, otherwise the error code. */
+async function readErrorOf(path: string): Promise<string | undefined> {
   try {
     await readdir(path);
-    return true;
-  } catch {
-    return false;
+    return undefined;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code ?? String(error);
   }
 }
 

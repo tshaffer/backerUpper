@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds /Applications/backerUpper.app, a launcher you can open from Spotlight.
-# Opening it starts the backerUpper server in a Terminal window if it isn't running,
+# Opening it starts the backerUpper server in an iTerm2 window if it isn't running,
 # then opens the page in your browser. Rerun this script if Node or the project moves.
 set -euo pipefail
 
@@ -12,6 +12,10 @@ if [[ -z "$NODE" ]]; then
   exit 1
 fi
 NODE_DIR="$(dirname "$NODE")"
+if [[ ! -d /Applications/iTerm.app ]]; then
+  echo "ERROR: iTerm2 isn't in /Applications. The launcher runs the server in iTerm2." >&2
+  exit 1
+fi
 
 if [[ -e "$APP" && ! -f "$APP/Contents/Resources/backerupper-launcher" ]]; then
   echo "ERROR: $APP exists and wasn't made by this script. Remove it yourself first." >&2
@@ -42,10 +46,14 @@ PLIST
 # Paths are fixed when the app is built, because apps opened from Finder or Spotlight
 # don't get your shell's PATH (so nvm's node isn't visible to them).
 #
-# The server runs in a Terminal window, not as a child of this app. macOS grants drive
-# access per app, and Terminal already has access to the backup drives, whereas a
-# script-based app like this one often never gets a permission prompt at all.
-cat > "$TMP_APP/Contents/Resources/start-server.command" <<SERVER
+# The server runs in an iTerm2 window, not as a child of this app. macOS grants drive
+# access per app, and iTerm2 already has access to the backup drives, whereas a
+# script-based app like this one often never gets a permission prompt at all. The script
+# lives outside the app, because macOS charges a script inside an app bundle to that app.
+SERVER_DIR="$HOME/Library/Application Support/backerUpper"
+SERVER_SCRIPT="$SERVER_DIR/start-server.command"
+mkdir -p "$SERVER_DIR"
+cat > "$SERVER_SCRIPT" <<SERVER
 #!/bin/bash
 set -o pipefail
 export PATH="$NODE_DIR:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
@@ -61,24 +69,24 @@ fi
 echo
 read -r -p "backerUpper has stopped. Press Return to close this window. "
 SERVER
-chmod +x "$TMP_APP/Contents/Resources/start-server.command"
+chmod +x "$SERVER_SCRIPT"
 
 cat > "$TMP_APP/Contents/MacOS/backerUpper" <<LAUNCHER
 #!/bin/bash
 URL="http://127.0.0.1:4199"
-SERVER_SCRIPT="\$(cd "\$(dirname "\$0")/../Resources" && pwd)/start-server.command"
+SERVER_SCRIPT="$SERVER_SCRIPT"
 
 running() { curl -s -o /dev/null --max-time 2 "\$URL/api/state"; }
 
 if ! running; then
-  open -a Terminal "\$SERVER_SCRIPT"
+  open -a iTerm "\$SERVER_SCRIPT"
   for _ in \$(seq 1 120); do running && break; sleep 0.5; done
 fi
 
 if running; then
   [[ -n "\${BACKERUPPER_NO_OPEN:-}" ]] || open "\$URL"
 else
-  osascript -e 'display alert "backerUpper could not start" message "See the backerUpper server window in Terminal, or ~/Library/Logs/backerUpper.log."'
+  osascript -e 'display alert "backerUpper could not start" message "See the backerUpper server window in iTerm2, or ~/Library/Logs/backerUpper.log."'
   exit 1
 fi
 LAUNCHER

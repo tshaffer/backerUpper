@@ -8,7 +8,7 @@ It currently covers Tedography and Chatorama. Apps are defined in `config/backer
 
 Requires Node, pnpm, `mongodump`, and Homebrew rsync 3.x (`/opt/homebrew/bin/rsync`).
 
-Run it from your own Terminal, because macOS grants drive access per app, and Terminal can already read `SHAFFEROTO`.
+Run it from iTerm2, because macOS grants drive access per app, and iTerm2 can already read `SHAFFEROTO`.
 
 ```bash
 cd ~/src/backerUpper
@@ -24,9 +24,9 @@ Then open <http://127.0.0.1:4199>. The server only listens on this Mac.
 ./scripts/install-app.sh
 ```
 
-This puts `backerUpper.app` in `/Applications`. If the server isn't running, opening it starts the server in a Terminal window titled "backerUpper server", then opens the page in your browser. Opening it again while it's running just opens the page.
+This puts `backerUpper.app` in `/Applications`. If the server isn't running, opening it starts the server in an iTerm2 window titled "backerUpper server", then opens the page in your browser. Opening it again while it's running just opens the page.
 
-The server runs in Terminal because macOS grants drive access per app and Terminal already has access to the drives. Closing the page doesn't stop a backup, but closing that Terminal window or pressing Ctrl-C in it stops the server. The log is also saved to `~/Library/Logs/backerUpper.log`.
+The server runs in iTerm2 because macOS grants drive access per app and iTerm2 already has access to the drives, through Full Disk Access. Closing the page doesn't stop a backup, but closing that iTerm2 window or pressing Ctrl-C in it stops the server. The log is also saved to `~/Library/Logs/backerUpper.log`.
 
 After changing backerUpper's code, stop the server (Ctrl-C in its window, or the command below) so the next launch picks up the change:
 
