@@ -24,11 +24,11 @@ Then open <http://127.0.0.1:4199>. The server only listens on this Mac.
 ./scripts/install-app.sh
 ```
 
-This puts `backerUpper.app` in `/Applications`. Opening it starts the server in the background if it isn't running, then opens the page in your browser. Opening it again while it's running just opens the page. The server keeps running after you close the page, so a backup carries on, and its log is `~/Library/Logs/backerUpper.log`.
+This puts `backerUpper.app` in `/Applications`. If the server isn't running, opening it starts the server in a Terminal window titled "backerUpper server", then opens the page in your browser. Opening it again while it's running just opens the page.
 
-The first time, macOS asks whether backerUpper can access removable volumes and your Documents folder. Allow both. If you missed a prompt, turn backerUpper on in System Settings > Privacy & Security > Files & Folders.
+The server runs in Terminal because macOS grants drive access per app and Terminal already has access to the drives. Closing the page doesn't stop a backup, but closing that Terminal window or pressing Ctrl-C in it stops the server. The log is also saved to `~/Library/Logs/backerUpper.log`.
 
-After changing backerUpper's code, stop the server so the next launch picks up the change:
+After changing backerUpper's code, stop the server (Ctrl-C in its window, or the command below) so the next launch picks up the change:
 
 ```bash
 pkill -f 'backerUpper/node_modules/.*tsx.*src/server/index.ts'

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds /Applications/backerUpper.app, a launcher you can open from Spotlight.
-# Opening it starts the backerUpper server in the background if it isn't running,
+# Opening it starts the backerUpper server in a Terminal window if it isn't running,
 # then opens the page in your browser. Rerun this script if Node or the project moves.
 set -euo pipefail
 
@@ -41,32 +41,44 @@ PLIST
 
 # Paths are fixed when the app is built, because apps opened from Finder or Spotlight
 # don't get your shell's PATH (so nvm's node isn't visible to them).
+#
+# The server runs in a Terminal window, not as a child of this app. macOS grants drive
+# access per app, and Terminal already has access to the backup drives, whereas a
+# script-based app like this one often never gets a permission prompt at all.
+cat > "$TMP_APP/Contents/Resources/start-server.command" <<SERVER
+#!/bin/bash
+set -o pipefail
+export PATH="$NODE_DIR:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+LOG="\$HOME/Library/Logs/backerUpper.log"
+cd "$PROJECT_DIR" || exit 1
+printf '\\033]0;backerUpper server\\007'
+echo "=== Starting \$(date)" >>"\$LOG"
+echo "backerUpper server. Keep this window open while a backup runs. Press Ctrl-C to stop it."
+echo
+if ./node_modules/.bin/vite build --logLevel warn 2>&1 | tee -a "\$LOG"; then
+  ./node_modules/.bin/tsx src/server/index.ts 2>&1 | tee -a "\$LOG"
+fi
+echo
+read -r -p "backerUpper has stopped. Press Return to close this window. "
+SERVER
+chmod +x "$TMP_APP/Contents/Resources/start-server.command"
+
 cat > "$TMP_APP/Contents/MacOS/backerUpper" <<LAUNCHER
 #!/bin/bash
-PROJECT_DIR="$PROJECT_DIR"
-export PATH="$NODE_DIR:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-PORT="\${BACKERUPPER_PORT:-4199}"
-URL="http://127.0.0.1:\$PORT"
-LOG="\$HOME/Library/Logs/backerUpper.log"
+URL="http://127.0.0.1:4199"
+SERVER_SCRIPT="\$(cd "\$(dirname "\$0")/../Resources" && pwd)/start-server.command"
 
 running() { curl -s -o /dev/null --max-time 2 "\$URL/api/state"; }
 
 if ! running; then
-  cd "\$PROJECT_DIR" || exit 1
-  {
-    echo "=== Starting \$(date)"
-    ./node_modules/.bin/vite build --logLevel warn
-  } >>"\$LOG" 2>&1
-  # The server outlives this launcher, so closing the browser tab doesn't stop a backup.
-  nohup ./node_modules/.bin/tsx src/server/index.ts >>"\$LOG" 2>&1 </dev/null &
-  disown
-  for _ in \$(seq 1 60); do running && break; sleep 0.5; done
+  open -a Terminal "\$SERVER_SCRIPT"
+  for _ in \$(seq 1 120); do running && break; sleep 0.5; done
 fi
 
 if running; then
   [[ -n "\${BACKERUPPER_NO_OPEN:-}" ]] || open "\$URL"
 else
-  osascript -e 'display alert "backerUpper could not start" message "See ~/Library/Logs/backerUpper.log for details."'
+  osascript -e 'display alert "backerUpper could not start" message "See the backerUpper server window in Terminal, or ~/Library/Logs/backerUpper.log."'
   exit 1
 fi
 LAUNCHER
