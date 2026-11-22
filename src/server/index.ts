@@ -53,7 +53,6 @@ app.get(
           label: item.label,
           note: item.note,
           type: item.type,
-          defaultSelected: item.defaultSelected,
           volumes: itemVolumes(item),
           lastBackupAt: latest[key],
         };

@@ -11,7 +11,6 @@ export interface MongoItemConfig {
   type: 'mongo';
   label: string;
   note?: string;
-  defaultSelected: boolean;
   envFile: string;
   envKey: string;
   database: string;
@@ -25,7 +24,6 @@ export interface FilesItemConfig {
   type: 'files';
   label: string;
   note?: string;
-  defaultSelected: boolean;
   /** Omit for a folder on this Mac, in which case sourcePath is absolute or starts with ~/. */
   sourceVolume?: string;
   sourcePath: string;
@@ -71,7 +69,6 @@ export interface ItemView {
   label: string;
   note?: string;
   type: 'mongo' | 'files';
-  defaultSelected: boolean;
   volumes: string[];
   lastBackupAt?: string;
 }

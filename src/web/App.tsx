@@ -46,11 +46,7 @@ export function App() {
 
   useEffect(() => {
     if (!state) return;
-    setSelected((current) => {
-      if (current) return current;
-      const defaults = state.apps.flatMap((app) => app.items).filter((item) => item.defaultSelected);
-      return new Set(defaults.map((item) => item.key));
-    });
+    setSelected((current) => current ?? new Set());
     // Reopening the page during a backup goes straight back to its progress.
     if (state.job?.kind === 'run' && state.job.status === 'running') setStage('run');
   }, [state]);
@@ -101,10 +97,20 @@ export function App() {
             </li>
           ))}
         </ol>
+        {stage === 'select' && (
+          <div className="header-actions">
+            <button className="primary" disabled={selected.size === 0} onClick={() => setStage('drives')}>
+              Continue
+            </button>
+            <span className="muted">
+              {selected.size === 0 ? 'Choose what to back up' : `${selected.size} selected`}
+            </span>
+          </div>
+        )}
       </header>
       {error && <div className="banner bad">{error}</div>}
       {stage === 'select' && (
-        <SelectStage state={state} selected={selected} onChange={setSelected} onNext={() => setStage('drives')} />
+        <SelectStage state={state} selected={selected} onChange={setSelected} />
       )}
       {stage === 'drives' && <DrivesStage volumes={requiredVolumes} onBack={startOver} />}
       {stage === 'plan' && (
@@ -142,9 +148,8 @@ function SelectStage(props: {
   state: AppState;
   selected: Set<string>;
   onChange: (selected: Set<string>) => void;
-  onNext: () => void;
 }) {
-  const { state, selected, onChange, onNext } = props;
+  const { state, selected, onChange } = props;
   const toggle = (key: string) => {
     const next = new Set(selected);
     if (!next.delete(key)) next.add(key);
@@ -192,11 +197,6 @@ function SelectStage(props: {
           </section>
         );
       })}
-      <div className="actions">
-        <button className="primary" disabled={selected.size === 0} onClick={onNext}>
-          Continue
-        </button>
-      </div>
     </>
   );
 }
