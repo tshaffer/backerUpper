@@ -71,6 +71,10 @@ pre { overflow-x: auto; max-height: 220px; margin: 6px 0 0; padding: 8px; font-s
 .detail { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 4px; }
 .card-head h2 { margin: 0; }
+.card.collapsed .card-head { margin-bottom: 0; }
+button.disclosure { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; font: inherit; font-weight: inherit; color: inherit; }
+.chevron { width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg) translate(-2px, -2px); transition: transform .15s; }
+.card.collapsed .chevron { transform: rotate(-45deg); }
 .select-links { margin-left: auto; display: flex; gap: 14px; }
 button.link { padding: 0; border: 0; background: none; color: var(--accent); font-size: 13px; }
 button.link:disabled { color: var(--muted); opacity: .6; }

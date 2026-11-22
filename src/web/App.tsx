@@ -144,12 +144,39 @@ export function App() {
   );
 }
 
+const COLLAPSED_KEY = 'backerUpper.collapsedApps';
+
+/** Which apps are collapsed, remembered in this browser only. */
+function useCollapsedApps(): [Set<string>, (appId: string) => void] {
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]') as string[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const toggle = (appId: string) => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (!next.delete(appId)) next.add(appId);
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
+      } catch {
+        // Not remembering is fine.
+      }
+      return next;
+    });
+  };
+  return [collapsed, toggle];
+}
+
 function SelectStage(props: {
   state: AppState;
   selected: Set<string>;
   onChange: (selected: Set<string>) => void;
 }) {
   const { state, selected, onChange } = props;
+  const [collapsed, toggleCollapsed] = useCollapsedApps();
   const toggle = (key: string) => {
     const next = new Set(selected);
     if (!next.delete(key)) next.add(key);
@@ -168,10 +195,21 @@ function SelectStage(props: {
       {state.apps.map((app) => {
         const keys = app.items.map((item) => item.key);
         const chosen = keys.filter((key) => selected.has(key)).length;
+        const open = !collapsed.has(app.id);
         return (
-          <section className="card" key={app.id}>
+          <section className={`card${open ? '' : ' collapsed'}`} key={app.id}>
             <div className="card-head">
-              <h2>{app.name}</h2>
+              <h2>
+                <button
+                  className="disclosure"
+                  aria-expanded={open}
+                  aria-controls={`items-${app.id}`}
+                  onClick={() => toggleCollapsed(app.id)}
+                >
+                  <span className="chevron" aria-hidden="true" />
+                  {app.name}
+                </button>
+              </h2>
               <span className="muted">{chosen} of {keys.length}</span>
               <span className="select-links">
                 <button className="link" disabled={chosen === keys.length} onClick={() => setAll(keys, true)}>
@@ -182,6 +220,7 @@ function SelectStage(props: {
                 </button>
               </span>
             </div>
+            <div id={`items-${app.id}`} hidden={!open}>
             {app.items.map((item) => (
               <div className="row" key={item.key}>
                 <label className="check row-main">
@@ -194,6 +233,7 @@ function SelectStage(props: {
                 <span className="muted">{formatAge(item.lastBackupAt)}</span>
               </div>
             ))}
+            </div>
           </section>
         );
       })}
